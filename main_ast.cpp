@@ -1,10 +1,12 @@
 // Example of code:
 //
 // fn void foo() {
-//   int i = 42;
+//   int i = 123;
 //   int j = 0;
 //   if (i < 100) {
 //     j = i;
+//   } else {
+//     j = 100;
 //   }
 //   return j;
 // }
@@ -18,7 +20,7 @@ int main() {
 
   // declare i
   function_decl->body->append<VariableDeclaration>("i", ValueType::Int,
-                                                   std::make_unique<Literal>(42));
+                                                   std::make_unique<Literal>(123));
 
   // declare j
   function_decl->body->append<VariableDeclaration>("j", ValueType::Int,
@@ -32,6 +34,7 @@ int main() {
   auto if_block = std::make_unique<Block>();
   if_block->append<Assignment>("j", std::make_unique<Variable>("i"));
   auto else_block = std::make_unique<Block>();
+  else_block->append<Assignment>("j", std::make_unique<Literal>(100));
   auto if_else =
       std::make_unique<IfElse>(std::move(less_than), std::move(if_block), std::move(else_block));
   function_decl->body->children.push_back(std::move(if_else));
