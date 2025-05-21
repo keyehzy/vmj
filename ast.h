@@ -20,6 +20,7 @@ struct Ast {
     Assignment,
     Return,
     IfElse,
+    Add,
   };
 
   Type type;
@@ -199,6 +200,22 @@ struct IfElse : public Ast {
   }
 };
 
+struct Add : public Ast {
+  std::unique_ptr<Ast> left;
+  std::unique_ptr<Ast> right;
+
+  Add(std::unique_ptr<Ast> left, std::unique_ptr<Ast> right)
+      : Ast(Type::Add), left(std::move(left)), right(std::move(right)) {}
+
+  void dump(std::ostream &os) const override {
+    os << "Add(";
+    left->dump(os);
+    os << ", ";
+    right->dump(os);
+    os << ")";
+  }
+};
+
 struct AstInterpreter {
   int interpret_variable(const Variable &variable) { return variables[variable.name]; }
 
@@ -259,6 +276,10 @@ struct AstInterpreter {
     }
   }
 
+  int interpret_add(const Add &add) {
+    return interpret(*add.left) + interpret(*add.right);
+  }
+
   int interpret(const Ast &ast) {
     switch (ast.type) {
       case Ast::Type::Variable:
@@ -283,6 +304,8 @@ struct AstInterpreter {
         return interpret_return(static_cast<const Return &>(ast));
       case Ast::Type::IfElse:
         return interpret_if_else(static_cast<const IfElse &>(ast));
+      case Ast::Type::Add:
+        return interpret_add(static_cast<const Add &>(ast));
     }
     assert(false);
   }
