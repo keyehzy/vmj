@@ -19,6 +19,7 @@ struct Ast {
     Variable,
     Assignment,
     Return,
+    IfElse,
   };
 
   Type type;
@@ -177,6 +178,27 @@ struct Return : public Ast {
   }
 };
 
+struct IfElse : public Ast {
+  std::unique_ptr<LessThan> condition;
+  std::unique_ptr<Block> body;
+  std::unique_ptr<Block> else_body;
+
+  IfElse(std::unique_ptr<LessThan> condition, std::unique_ptr<Block> body,
+         std::unique_ptr<Block> else_body)
+      : Ast(Type::IfElse), condition(std::move(condition)), body(std::move(body)),
+        else_body(std::move(else_body)) {}
+
+  void dump(std::ostream &os) const override {
+    os << "IfElse(";
+    condition->dump(os);
+    os << ", ";
+    body->dump(os);
+    os << ", ";
+    else_body->dump(os);
+    os << ")";
+  }
+};
+
 struct AstInterpreter {
   int interpret_variable(const Variable &variable) { return variables[variable.name]; }
 
@@ -229,6 +251,14 @@ struct AstInterpreter {
     return interpret(*return_statement.value);
   }
 
+  int interpret_if_else(const IfElse &if_else) {
+    if (interpret(*if_else.condition)) {
+      return interpret_block(*if_else.body);
+    } else {
+      return interpret_block(*if_else.else_body);
+    }
+  }
+
   int interpret(const Ast &ast) {
     switch (ast.type) {
       case Ast::Type::Variable:
@@ -251,6 +281,8 @@ struct AstInterpreter {
         return interpret_assignment(static_cast<const Assignment &>(ast));
       case Ast::Type::Return:
         return interpret_return(static_cast<const Return &>(ast));
+      case Ast::Type::IfElse:
+        return interpret_if_else(static_cast<const IfElse &>(ast));
     }
     assert(false);
   }
