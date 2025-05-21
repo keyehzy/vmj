@@ -489,7 +489,8 @@ struct Jit {
 
     for (auto &block : program.blocks) {
       for (auto &jump : block->jumps_to_here) {
-        auto offset       = block->offset - jump - 4;
+        auto offset = block->offset - jump - 4;
+
         jit.buf[jump + 0] = (offset >> 0) & 0xff;
         jit.buf[jump + 1] = (offset >> 8) & 0xff;
         jit.buf[jump + 2] = (offset >> 16) & 0xff;
@@ -577,8 +578,8 @@ struct VM {
 
     // write(STDOUT_FILENO, executable.data, executable.size);
 
-    // RSI: VM&
-    // RDI: VM_Register* registers
+    // RDI: VM&
+    // RSI: VM_Register* registers
     // RDX: VM_Local* locals
     typedef void (*JitFunction)(VM &, VM_Register *registers, VM_Local *locals);
     auto func = reinterpret_cast<JitFunction>(executable.data);
