@@ -7,34 +7,66 @@
 #include <unordered_map>
 #include <vector>
 
+enum class AstType {
+  FunctionDeclaration,
+  Block,
+  While,
+  VariableDeclaration,
+  LessThan,
+  Increment,
+  Literal,
+  Variable,
+  Assignment,
+  Return,
+  IfElse,
+  Add,
+};
+
 struct Ast {
-  enum class Type {
-    FunctionDeclaration,
-    Block,
-    While,
-    VariableDeclaration,
-    LessThan,
-    Increment,
-    Literal,
-    Variable,
-    Assignment,
-    Return,
-    IfElse,
-    Add,
-  };
+  struct FunctionDeclaration;
+  struct Block;
+  struct While;
+  struct VariableDeclaration;
+  struct LessThan;
+  struct Increment;
+  struct Literal;
+  struct Variable;
+  struct Assignment;
+  struct Return;
+  struct IfElse;
+  struct Add;
 
-  Type type;
+  AstType type;
 
-  Ast()          = default;
+  Ast() = default;
+
   virtual ~Ast() = default;
 
   virtual void dump(std::ostream &os) const = 0;
 
  protected:
-  explicit Ast(Type type) : type(type) {}
+  explicit Ast(AstType type) : type(type) {}
 };
 
-struct Block : public Ast {
+template <typename Derived_Reference, typename Base>
+Derived_Reference derived_cast(Base &base) {
+  using Derived = std::remove_reference_t<Derived_Reference>;
+  static_assert(std::is_base_of_v<Base, Derived>);
+  static_assert(!std::is_base_of_v<Derived, Base>);
+  return static_cast<Derived_Reference>(base);
+}
+
+template <typename Derived>
+Derived ast_cast(Ast &ast) {
+  return derived_cast<Derived>(ast);
+}
+
+template <typename Derived>
+Derived ast_cast(const Ast &ast) {
+  return derived_cast<Derived>(ast);
+}
+
+struct Ast::Block final : public Ast {
   std::vector<std::unique_ptr<Ast>> children;
 
   template <typename T, typename... Args>
@@ -60,13 +92,13 @@ enum class ValueType {
 
 std::string to_string(ValueType type);
 
-struct FunctionDeclaration : public Ast {
+struct Ast::FunctionDeclaration final : public Ast {
   std::string name;
   ValueType return_type;
   std::unique_ptr<Block> body;
 
   FunctionDeclaration(std::string name, ValueType return_type, std::unique_ptr<Block> body)
-      : Ast(Type::FunctionDeclaration),
+      : Ast(AstType::FunctionDeclaration),
         name(name),
         return_type(return_type),
         body(std::move(body)) {}
@@ -78,13 +110,13 @@ struct FunctionDeclaration : public Ast {
   }
 };
 
-struct VariableDeclaration : public Ast {
+struct Ast::VariableDeclaration final : public Ast {
   std::string name;
   ValueType type;
   std::unique_ptr<Ast> initializer;
 
   VariableDeclaration(std::string name, ValueType type, std::unique_ptr<Ast> initializer)
-      : Ast(Type::VariableDeclaration),
+      : Ast(AstType::VariableDeclaration),
         name(name),
         type(type),
         initializer(std::move(initializer)) {}
@@ -96,12 +128,12 @@ struct VariableDeclaration : public Ast {
   }
 };
 
-struct LessThan : public Ast {
+struct Ast::LessThan final : public Ast {
   std::unique_ptr<Ast> left;
   std::unique_ptr<Ast> right;
 
   LessThan(std::unique_ptr<Ast> left, std::unique_ptr<Ast> right)
-      : Ast(Type::LessThan), left(std::move(left)), right(std::move(right)) {}
+      : Ast(AstType::LessThan), left(std::move(left)), right(std::move(right)) {}
 
   void dump(std::ostream &os) const override {
     os << "LessThan(";
@@ -112,37 +144,37 @@ struct LessThan : public Ast {
   }
 };
 
-struct Literal : public Ast {
+struct Ast::Literal final : public Ast {
   int value;
 
-  Literal(int value) : Ast(Type::Literal), value(value) {}
+  Literal(int value) : Ast(AstType::Literal), value(value) {}
 
   void dump(std::ostream &os) const override { os << "Literal(" << value << ")"; }
 };
 
-struct Variable : public Ast {
+struct Ast::Variable final : public Ast {
   std::string name;
 
-  Variable(std::string name) : Ast(Type::Variable), name(name) {}
+  Variable(std::string name) : Ast(AstType::Variable), name(name) {}
 
   void dump(std::ostream &os) const override { os << "Variable(" << name << ")"; }
 };
 
-struct Increment : public Ast {
+struct Ast::Increment final : public Ast {
   std::unique_ptr<Variable> variable;
 
   Increment(std::unique_ptr<Variable> variable)
-      : Ast(Type::Increment), variable(std::move(variable)) {}
+      : Ast(AstType::Increment), variable(std::move(variable)) {}
 
   void dump(std::ostream &os) const override { os << "Increment(" << variable->name << ")"; }
 };
 
-struct While : public Ast {
+struct Ast::While final : public Ast {
   std::unique_ptr<LessThan> condition;
   std::unique_ptr<Block> body;
 
   While(std::unique_ptr<LessThan> condition, std::unique_ptr<Block> body)
-      : Ast(Type::While), condition(std::move(condition)), body(std::move(body)) {}
+      : Ast(AstType::While), condition(std::move(condition)), body(std::move(body)) {}
 
   void dump(std::ostream &os) const override {
     os << "While(";
@@ -153,12 +185,12 @@ struct While : public Ast {
   }
 };
 
-struct Assignment : public Ast {
+struct Ast::Assignment final : public Ast {
   std::string name;
   std::unique_ptr<Ast> value;
 
   Assignment(std::string name, std::unique_ptr<Ast> value)
-      : Ast(Type::Assignment), name(name), value(std::move(value)) {}
+      : Ast(AstType::Assignment), name(name), value(std::move(value)) {}
 
   void dump(std::ostream &os) const override {
     os << "Assignment(" << name << ", ";
@@ -167,10 +199,10 @@ struct Assignment : public Ast {
   }
 };
 
-struct Return : public Ast {
+struct Ast::Return final : public Ast {
   std::unique_ptr<Ast> value;
 
-  Return(std::unique_ptr<Ast> value) : Ast(Type::Return), value(std::move(value)) {}
+  Return(std::unique_ptr<Ast> value) : Ast(AstType::Return), value(std::move(value)) {}
 
   void dump(std::ostream &os) const override {
     os << "Return(";
@@ -179,14 +211,16 @@ struct Return : public Ast {
   }
 };
 
-struct IfElse : public Ast {
+struct Ast::IfElse final : public Ast {
   std::unique_ptr<LessThan> condition;
   std::unique_ptr<Block> body;
   std::unique_ptr<Block> else_body;
 
   IfElse(std::unique_ptr<LessThan> condition, std::unique_ptr<Block> body,
          std::unique_ptr<Block> else_body)
-      : Ast(Type::IfElse), condition(std::move(condition)), body(std::move(body)),
+      : Ast(AstType::IfElse),
+        condition(std::move(condition)),
+        body(std::move(body)),
         else_body(std::move(else_body)) {}
 
   void dump(std::ostream &os) const override {
@@ -200,12 +234,12 @@ struct IfElse : public Ast {
   }
 };
 
-struct Add : public Ast {
+struct Ast::Add final : public Ast {
   std::unique_ptr<Ast> left;
   std::unique_ptr<Ast> right;
 
   Add(std::unique_ptr<Ast> left, std::unique_ptr<Ast> right)
-      : Ast(Type::Add), left(std::move(left)), right(std::move(right)) {}
+      : Ast(AstType::Add), left(std::move(left)), right(std::move(right)) {}
 
   void dump(std::ostream &os) const override {
     os << "Add(";
@@ -217,26 +251,26 @@ struct Add : public Ast {
 };
 
 struct AstInterpreter {
-  int interpret_variable(const Variable &variable) { return variables[variable.name]; }
+  int interpret_variable(const Ast::Variable &variable) { return variables[variable.name]; }
 
-  int interpret_literal(const Literal &literal) { return literal.value; }
+  int interpret_literal(const Ast::Literal &literal) { return literal.value; }
 
-  int interpret_less_than(const LessThan &less_than) {
+  int interpret_less_than(const Ast::LessThan &less_than) {
     return interpret(*less_than.left) < interpret(*less_than.right);
   }
 
-  int interpret_variable_declaration(const VariableDeclaration &variable_declaration) {
+  int interpret_variable_declaration(const Ast::VariableDeclaration &variable_declaration) {
     // make sure the variable is not already declared
     assert(variables.find(variable_declaration.name) == variables.end());
     // FIXME: check type of initializer
     return variables[variable_declaration.name] = interpret(*variable_declaration.initializer);
   }
 
-  int interpret_increment(const Increment &increment) {
+  int interpret_increment(const Ast::Increment &increment) {
     return variables[increment.variable->name]++;
   }
 
-  int interpret_block(const Block &block) {
+  int interpret_block(const Ast::Block &block) {
     int result = 0;
     for (const auto &child : block.children) {
       result = interpret(*child);
@@ -244,7 +278,7 @@ struct AstInterpreter {
     return result;
   }
 
-  int interpret_while(const While &while_loop) {
+  int interpret_while(const Ast::While &while_loop) {
     int result = 0;
     while (interpret(*while_loop.condition)) {
       result = interpret_block(*while_loop.body);
@@ -252,23 +286,23 @@ struct AstInterpreter {
     return result;
   }
 
-  int interpret_function_declaration(const FunctionDeclaration &function_declaration) {
+  int interpret_function_declaration(const Ast::FunctionDeclaration &function_declaration) {
     return interpret_block(*function_declaration.body);
   }
 
-  int interpret_assignment(const Assignment &assignment) {
+  int interpret_assignment(const Ast::Assignment &assignment) {
     // make sure the variable is already declared
     assert(variables.find(assignment.name) != variables.end());
     // FIXME: check type of value
     return variables[assignment.name] = interpret(*assignment.value);
   }
 
-  int interpret_return(const Return &return_statement) {
+  int interpret_return(const Ast::Return &return_statement) {
     // FIXME: check type of return value
     return interpret(*return_statement.value);
   }
 
-  int interpret_if_else(const IfElse &if_else) {
+  int interpret_if_else(const Ast::IfElse &if_else) {
     if (interpret(*if_else.condition)) {
       return interpret_block(*if_else.body);
     } else {
@@ -276,36 +310,34 @@ struct AstInterpreter {
     }
   }
 
-  int interpret_add(const Add &add) {
-    return interpret(*add.left) + interpret(*add.right);
-  }
+  int interpret_add(const Ast::Add &add) { return interpret(*add.left) + interpret(*add.right); }
 
   int interpret(const Ast &ast) {
     switch (ast.type) {
-      case Ast::Type::Variable:
-        return interpret_variable(static_cast<const Variable &>(ast));
-      case Ast::Type::Literal:
-        return interpret_literal(static_cast<const Literal &>(ast));
-      case Ast::Type::LessThan:
-        return interpret_less_than(static_cast<const LessThan &>(ast));
-      case Ast::Type::VariableDeclaration:
-        return interpret_variable_declaration(static_cast<const VariableDeclaration &>(ast));
-      case Ast::Type::Increment:
-        return interpret_increment(static_cast<const Increment &>(ast));
-      case Ast::Type::While:
-        return interpret_while(static_cast<const While &>(ast));
-      case Ast::Type::Block:
-        return interpret_block(static_cast<const Block &>(ast));
-      case Ast::Type::FunctionDeclaration:
-        return interpret_function_declaration(static_cast<const FunctionDeclaration &>(ast));
-      case Ast::Type::Assignment:
-        return interpret_assignment(static_cast<const Assignment &>(ast));
-      case Ast::Type::Return:
-        return interpret_return(static_cast<const Return &>(ast));
-      case Ast::Type::IfElse:
-        return interpret_if_else(static_cast<const IfElse &>(ast));
-      case Ast::Type::Add:
-        return interpret_add(static_cast<const Add &>(ast));
+      case AstType::Variable:
+        return interpret_variable(ast_cast<Ast::Variable const &>(ast));
+      case AstType::Literal:
+        return interpret_literal(ast_cast<Ast::Literal const &>(ast));
+      case AstType::LessThan:
+        return interpret_less_than(ast_cast<Ast::LessThan const &>(ast));
+      case AstType::VariableDeclaration:
+        return interpret_variable_declaration(ast_cast<Ast::VariableDeclaration const &>(ast));
+      case AstType::Increment:
+        return interpret_increment(ast_cast<Ast::Increment const &>(ast));
+      case AstType::While:
+        return interpret_while(ast_cast<Ast::While const &>(ast));
+      case AstType::Block:
+        return interpret_block(ast_cast<Ast::Block const &>(ast));
+      case AstType::FunctionDeclaration:
+        return interpret_function_declaration(ast_cast<Ast::FunctionDeclaration const &>(ast));
+      case AstType::Assignment:
+        return interpret_assignment(ast_cast<Ast::Assignment const &>(ast));
+      case AstType::Return:
+        return interpret_return(ast_cast<Ast::Return const &>(ast));
+      case AstType::IfElse:
+        return interpret_if_else(ast_cast<Ast::IfElse const &>(ast));
+      case AstType::Add:
+        return interpret_add(ast_cast<Ast::Add const &>(ast));
     }
     assert(false);
   }
